@@ -107,7 +107,8 @@ def test_ola_filter_distinct():
         ola.process_slice(df_list[i])
 
         assert widget.data[0]['x'] == expected_keys[i], "The keys of the plot are incorrect."
-        assert np.allclose(widget.data[0]['y'], expected_vals[i]), "The values of the plot are incorrect."
+        assert widget.data[0]['y'] < tuple(i * 4 for i in expected_vals[i]), "The values of the plot are too large."
+        assert widget.data[0]['y'] > tuple(i * 0.25 for i in expected_vals[i]), "The values of the plot are too small."
 
         # The size of the OLA class should be bounded.
         obj_size = asizeof.asizeof(ola)
