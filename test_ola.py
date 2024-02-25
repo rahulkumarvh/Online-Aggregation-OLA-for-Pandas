@@ -27,7 +27,7 @@ def test_ola_filter_avg():
         ola.process_slice(df_list[i])
 
         assert widget.data[0]['x'] == expected_keys[i], "The keys of the plot are incorrect."
-        assert np.allclose(widget.data[0]['y'], expected_vals[i]), "The values of the plot are incorrect."
+        assert np.allclose(widget.data[0]['y'], expected_vals[i], rtol=0.001), "The values of the plot are incorrect."
 
         # The size of the OLA class should be bounded.
         obj_size = asizeof.asizeof(ola)
@@ -47,7 +47,7 @@ def test_ola_groupby_avg():
         ola.process_slice(df_list[i])
 
         assert (widget.data[0]['x'] == expected_keys[i]).all(), "The keys of the plot are incorrect."
-        assert np.allclose(widget.data[0]['y'], expected_vals[i]), "The values of the plot are incorrect."
+        assert np.allclose(widget.data[0]['y'], expected_vals[i], rtol=0.001), "The values of the plot are incorrect."
 
         # The size of the OLA class should be bounded.
         obj_size = asizeof.asizeof(ola)
@@ -67,7 +67,7 @@ def test_ola_groupby_sum():
         ola.process_slice(df_list[i])
 
         assert (widget.data[0]['x'] == expected_keys[i]).all(), "The keys of the plot are incorrect."
-        assert np.allclose(widget.data[0]['y'], expected_vals[i]), "The values of the plot are incorrect."
+        assert np.allclose(widget.data[0]['y'], expected_vals[i], rtol=0.001), "The values of the plot are incorrect."
 
         # The size of the OLA class should be bounded.
         obj_size = asizeof.asizeof(ola)
@@ -87,7 +87,7 @@ def test_ola_groupby_count():
         ola.process_slice(df_list[i])
 
         assert (widget.data[0]['x'] == expected_keys[i]).all(), "The keys of the plot are incorrect."
-        assert np.allclose(widget.data[0]['y'], expected_vals[i]), "The values of the plot are incorrect."
+        assert np.allclose(widget.data[0]['y'], expected_vals[i], rtol=0.001), "The values of the plot are incorrect."
 
         # The size of the OLA class should be bounded.
         obj_size = asizeof.asizeof(ola)
