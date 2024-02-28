@@ -3,6 +3,7 @@ from typing import List, Any
 
 import pandas as pd
 import plotly.graph_objects as go
+from collections import defaultdict
 
 
 class OLA:
@@ -63,124 +64,156 @@ class AvgOla(OLA):
 
 
 class FilterAvgOla(OLA):
-    def __init__(self, widget: go.FigureWidget, filter_col: str, filter_value: Any, mean_col: str):
+    def __init__(self, plot_widget: go.FigureWidget, filter_column: str, filter_value: Any, target_column: str):
         """
-            Class for performing OLA by incrementally computing the estimated filtered mean of *mean_col*
-            where *filter_col* is equal to *filter_value*.
+        Class for performing OLA by incrementally computing the estimated filtered mean of *target_column*
+        where *filter_column* is equal to *filter_value*.
 
-            @param filter_col: column to filter on.
-            @param filter_value: value to filter for, i.e., df[df[filter_col] == filter_value].
-            @param mean_col: column to compute filtered mean for.
+        @param plot_widget: The dynamically updating plotly plot.
+        @param filter_column: Column to filter on.
+        @param filter_value: Value to filter for, i.e., df[df[filter_column] == filter_value].
+        @param target_column: Column to compute filtered mean for.
         """
-        super().__init__(widget)
-        self.filter_col = filter_col
+        super().__init__(plot_widget)
+        self.filter_column = filter_column
         self.filter_value = filter_value
-        self.mean_col = mean_col
+        self.target_column = target_column
 
-        # Put any other bookkeeping class variables you need here...
+        # Bookkeeping variables
+        self.filtered_sum = 0
+        self.filtered_count = 0
 
     def process_slice(self, df_slice: pd.DataFrame) -> None:
         """
-            Update the running filtered mean with a dataframe slice.
+        Update the running filtered mean with a dataframe slice.
         """
-        # Implement me!
-        pass
+        filt_df = df_slice[df_slice[self.filter_column] == self.filter_value]
+        trgt_col_values = filt_df[self.target_column]
+
+        self.filtered_sum += trgt_col_values.sum()
+        self.filtered_count += trgt_col_values.count()
 
         # Update the plot. The filtered mean should be put into a singleton list due to Plotly semantics.
-        # hint: self.update_widget([""], *estimated filtered mean of mean_col*)
+        self.update_widget([""], [self.filtered_sum / self.filtered_count])
 
 
 class GroupByAvgOla(OLA):
-    def __init__(self, widget: go.FigureWidget, groupby_col: str, mean_col: str):
+    def __init__(self, plot_widget: go.FigureWidget, group_column: str, target_column: str):
         """
-            Class for performing OLA by incrementally computing the estimated grouped means of *mean_col*
-            with *groupby_col* as groups.
+        Class for performing OLA by incrementally computing the estimated grouped means of *target_column*
+        with *group_column* as groups.
 
-            @param groupby_col: grouping column, i.e., df.groupby(groupby_col).
-            @param mean_col: column to compute grouped means for.
+        @param plot_widget: The dynamically updating plotly plot.
+        @param group_column: Grouping column, i.e., df.groupby(group_column).
+        @param target_column: Column to compute grouped means for.
         """
-        super().__init__(widget)
-        self.groupby_col = groupby_col
-        self.mean_col = mean_col
+        super().__init__(plot_widget)
+        self.group_column = group_column
+        self.target_column = target_column
 
-        # Put any other bookkeeping class variables you need here...
+        # Bookkeeping variables
+        self.grouped_sum = defaultdict(float)
+        self.grouped_count = defaultdict(int)
 
     def process_slice(self, df_slice: pd.DataFrame) -> None:
         """
-            Update the running grouped means with a dataframe slice.
+        Update the running grouped means with a dataframe slice.
         """
-        # Implement me!
-        pass
+        grouped_df = df_slice.groupby(self.group_column)
+        for group, group_df in grouped_df:
+            trgt_col_val = group_df[self.target_column]
+
+            self.grouped_sum[group] += trgt_col_val.sum()
+            self.grouped_count[group] += trgt_col_val.count()
 
         # Update the plot
-        # hint: self.update_widget(*list of groups*, *list of estimated group means of mean_col*)
+        grps = list(self.grouped_sum.keys())
+        grp_means = [self.grouped_sum[group] / self.grouped_count[group] for group in grps]
+        self.update_widget(grps, grp_means)
 
 
 class GroupBySumOla(OLA):
-    def __init__(self, widget: go.FigureWidget, original_df_num_rows: int, groupby_col: str, sum_col: str):
+    def __init__(self, plot_widget: go.FigureWidget, original_rows: int, group_column: str, sum_column: str):
         """
-            Class for performing OLA by incrementally computing the estimated grouped sums of *sum_col*
-            with *groupby_col* as groups.
+        Class for performing OLA by incrementally computing the estimated grouped sums of *sum_column*
+        with *group_column* as groups.
 
-            @param original_df_num_rows: number of rows in the original dataframe before sampling and slicing.
-            @param groupby_col: grouping column, i.e., df.groupby(groupby_col).
-            @param sum_col: column to compute grouped sums for.
+        @param plot_widget: The dynamically updating plotly plot.
+        @param original_rows: Number of rows in the original dataframe before sampling and slicing.
+        @param group_column: Grouping column, i.e., df.groupby(group_column).
+        @param sum_column: Column to compute grouped sums for.
         """
-        super().__init__(widget)
-        self.original_df_num_rows = original_df_num_rows
-        self.groupby_col = groupby_col
-        self.sum_col = sum_col
+        super().__init__(plot_widget)
+        self.original_rows = original_rows
+        self.group_column = group_column
+        self.sum_column = sum_column
 
-        # Put any other bookkeeping class variables you need here...
+        # Bookkeeping variables
+        self.grouped_sums = defaultdict(float)
+        self.total_rows_processed = 0
 
     def process_slice(self, df_slice: pd.DataFrame) -> None:
         """
-            Update the running grouped sums with a dataframe slice.
+        Update the running grouped sums with a dataframe slice.
         """
-        # Implement me!
-        pass
+        groups_in_slice = df_slice.groupby(self.group_column)[self.sum_column].sum()
+        self.total_rows_processed += len(df_slice)
+        scaling_factor = self.original_rows / self.total_rows_processed
+
+        for group, sum_value in groups_in_slice.items():
+            self.grouped_sums[group] += sum_value
+
+        est_sums = [value * scaling_factor for value in self.grouped_sums.values()]
 
         # Update the plot
-        # hint: self.update_widget(*list of groups*, *list of estimated grouped sums of sum_col*)
+        updated_groups = list(self.grouped_sums.keys())
+        self.update_widget(updated_groups, est_sums)
 
 
 class GroupByCountOla(OLA):
-    def __init__(self, widget: go.FigureWidget, original_df_num_rows: int, groupby_col: str, count_col: str):
+    def __init__(self, plot_widget: go.FigureWidget, original_rows: int, group_column: str, count_column: str):
         """
-            Class for performing OLA by incrementally computing the estimated grouped non-null counts in *count_col*
-            with *groupby_col* as groups.
+        Class for performing OLA by incrementally computing the estimated grouped counts in *count_column*
+        with *group_column* as groups.
 
-            @param original_df_num_rows: number of rows in the original dataframe before sampling and slicing.
-            @param groupby_col: grouping column, i.e., df.groupby(groupby_col).
-            @param count_col: counting column.
+        @param plot_widget: The dynamically updating plotly plot.
+        @param original_rows: Number of rows in the original dataframe before sampling and slicing.
+        @param group_column: Grouping column, i.e., df.groupby(group_column).
+        @param count_column: Counting column.
         """
-        super().__init__(widget)
-        self.original_df_num_rows = original_df_num_rows
-        self.groupby_col = groupby_col
-        self.count_col = count_col
-
-        # Put any other bookkeeping class variables you need here...
+        super().__init__(plot_widget)
+        self.original_rows = original_rows
+        self.group_column = group_column
+        self.count_column = count_column
+        self.grouped_counts = defaultdict(int)
+        self.rows_processed = 0
 
     def process_slice(self, df_slice: pd.DataFrame) -> None:
         """
-            Update the running grouped counts with a dataframe slice.
+        Update the running grouped counts with a dataframe slice.
         """
-        # Implement me!
-        pass
+        curt_grps = df_slice.groupby(self.group_column)[self.count_column].count().index
+        curt_cts = df_slice.groupby(self.group_column)[self.count_column].count()
 
-        # Update the plot
-        # hint: self.update_widget(*list of groups*, *list of estimated group counts of count_col*)
+        self.rows_processed += len(df_slice)
+        factor = self.original_rows / self.rows_processed
+
+        for grp, ct in zip(curt_grps, curt_cts):
+            self.grouped_counts[grp] += ct
+
+        est_cts = [count * factor for count in self.grouped_counts.values()]
+        self.update_widget(list(self.grouped_counts.keys()), est_cts)
 
 
 class FilterDistinctOla(OLA):
     def __init__(self, widget: go.FigureWidget, filter_col: str, filter_value: Any, distinct_col: str):
         """
-            Class for performing OLA by incrementally computing the estimated cardinality (distinct elements) *distinct_col*
-            where *filter_col* is equal to *filter_value*.
+        Class for performing OLA by incrementally computing the estimated cardinality (distinct elements) *distinct_col*
+        where *filter_col* is equal to *filter_value*.
 
-            @param filter_col: column to filter on.
-            @param filter_value: value to filter for, i.e., df[df[filter_col] == filter_value].
-            @param distinct_col: column to compute cardinality for.
+        @param filter_col: column to filter on.
+        @param filter_value: value to filter for, i.e., df[df[filter_col] == filter_value].
+        @param distinct_col: column to compute cardinality for.
         """
         super().__init__(widget)
         self.filter_col = filter_col
@@ -195,10 +228,13 @@ class FilterDistinctOla(OLA):
 
     def process_slice(self, df_slice: pd.DataFrame) -> None:
         """
-            Update the running filtered cardinality with a dataframe slice.
+        Update the running filtered cardinality with a dataframe slice.
         """
-        # Implement me!
-        pass
+        filtered_df = df_slice[df_slice[self.filter_col] == self.filter_value]
+        dist_val = filtered_df[self.distinct_col].astype(str)
+        for val in dist_val:
+            self.hll.add(str(val))
 
         # Update the plot. The filtered cardinality should be put into a singleton list due to Plotly semantics.
-        # hint: self.update_widget([""], *estimated filtered cardinality of distinct_col*)
+        filt_card = self.hll.cardinality()
+        self.update_widget([""], [filt_card])
